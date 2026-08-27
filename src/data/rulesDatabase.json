@@ -1,0 +1,143 @@
+{
+  "rules": [
+    {
+      "rule_id": "R001",
+      "name": "Product Name",
+      "category": "Basic Declaration",
+      "requirement": "Common or generic name of commodity must be clearly declared",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 4 & 6, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "Every packaged commodity must have a clearly visible and legible name",
+      "validation_logic": {
+        "must_not_be": "empty",
+        "confidence_threshold": 0.7,
+        "font_size_min_mm": 2
+      }
+    },
+    {
+      "rule_id": "R002",
+      "name": "Net Quantity",
+      "category": "Quantity Declaration",
+      "requirement": "Net weight, measure or count in standard metric units (g, ml, kg, L)",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 6, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "Quantity must be expressed in standard metric units only",
+      "validation_logic": {
+        "must_match_pattern": "^[0-9]+\\s*(g|ml|kg|l|L)$",
+        "confidence_threshold": 0.8,
+        "standard_units_only": true
+      }
+    },
+    {
+      "rule_id": "R003",
+      "name": "Maximum Retail Price (MRP)",
+      "category": "Price Declaration",
+      "requirement": "MRP in Rs., must state 'inclusive of all taxes'",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 6, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "MRP must be declared prominently with clear tax inclusion statement",
+      "validation_logic": {
+        "must_include_currency": "Rs.",
+        "must_include_tax_statement": "inclusive of all taxes",
+        "confidence_threshold": 0.6,
+        "placement": "prominently_displayed"
+      }
+    },
+    {
+      "rule_id": "R004",
+      "name": "Manufacturer Name & Address",
+      "category": "Manufacturer Information",
+      "requirement": "Complete name and address of manufacturer, packer, or importer",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 4, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "Full contact details of responsible party must be present",
+      "validation_logic": {
+        "must_not_be": "empty",
+        "must_include": ["city", "state", "country"],
+        "confidence_threshold": 0.75
+      }
+    },
+    {
+      "rule_id": "R005",
+      "name": "Date of Manufacture/Packing",
+      "category": "Date Declaration",
+      "requirement": "Month and year of manufacture/packing/import in MM/YYYY format",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 5, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "Manufacturing or packing date must be in correct format",
+      "validation_logic": {
+        "format": "MM/YYYY",
+        "must_be_valid_date": true,
+        "confidence_threshold": 0.8
+      }
+    },
+    {
+      "rule_id": "R006",
+      "name": "Consumer Care Details",
+      "category": "Consumer Information",
+      "requirement": "Name, address, phone number, and/or email for consumer complaints",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 6, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "Contact information for customer support must be provided",
+      "validation_logic": {
+        "must_include": ["phone_or_email"],
+        "must_include_address": true,
+        "confidence_threshold": 0.7
+      }
+    },
+    {
+      "rule_id": "R007",
+      "name": "Country of Origin",
+      "category": "Origin Declaration",
+      "requirement": "Country of origin for all commodities, especially for imported goods",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 4 & 7, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "Origin country must be clearly stated",
+      "validation_logic": {
+        "must_not_be": "empty",
+        "valid_countries": ["India", "China", "USA", "Germany", "Japan", "Other"],
+        "confidence_threshold": 0.85
+      }
+    },
+    {
+      "rule_id": "R008",
+      "name": "Font Size & Legibility",
+      "category": "Label Format",
+      "requirement": "Minimum font size of 2mm for key mandatory declarations",
+      "mandatory_for": "all_products",
+      "legal_reference": "Rule 3, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "All declarations must be legible and prominently displayed",
+      "validation_logic": {
+        "font_size_min_mm": 2,
+        "must_be_clearly_visible": true,
+        "contrast_required": true
+      }
+    },
+    {
+      "rule_id": "R009",
+      "name": "Allergen Information (Food)",
+      "category": "Food Safety",
+      "requirement": "Clear allergen declaration for food products containing common allergens",
+      "mandatory_for": "food_products",
+      "legal_reference": "Food Safety and Standards Authority of India (FSSAI) Regulations",
+      "description": "Major allergens must be clearly identified",
+      "validation_logic": {
+        "must_include": ["common_allergens"],
+        "confidence_threshold": 0.8
+      }
+    },
+    {
+      "rule_id": "R010",
+      "name": "Batch/Lot Number",
+      "category": "Traceability",
+      "requirement": "Batch or lot number for traceability (recommended)",
+      "mandatory_for": "food_medicine",
+      "legal_reference": "Rule 5, Legal Metrology (Packaged Commodities) Rules, 2011",
+      "description": "Unique identifier for batch tracking",
+      "validation_logic": {
+        "recommended": true,
+        "confidence_threshold": 0.7
+      }
+    }
+  ]
+}
