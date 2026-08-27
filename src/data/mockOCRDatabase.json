@@ -1,0 +1,170 @@
+{
+  "SOAP-001": {
+    "product_id": "SOAP-001",
+    "product_name": "ABC Premium Soap",
+    "category": "FMCG - Personal Care",
+    "extractions": {
+      "product_name": {
+        "value": "ABC Premium Soap Bar",
+        "confidence": 0.97,
+        "bounding_box": "region_top_center",
+        "status": "extracted"
+      },
+      "net_quantity": {
+        "value": "100 g",
+        "confidence": 0.96,
+        "bounding_box": "region_side_left",
+        "status": "extracted"
+      },
+      "mrp": {
+        "value": "Rs. 30",
+        "confidence": 0.41,
+        "bounding_box": "region_bottom_right",
+        "status": "needs_review",
+        "flag": "low_confidence_faded_text"
+      },
+      "manufacturer_name": {
+        "value": "XYZ Industries Pvt Ltd",
+        "confidence": 0.94,
+        "bounding_box": "region_back_top",
+        "status": "extracted"
+      },
+      "manufacturer_address": {
+        "value": "Mumbai, India",
+        "confidence": 0.88,
+        "bounding_box": "region_back_center",
+        "status": "extracted"
+      },
+      "date_of_manufacture": {
+        "value": "July 2024",
+        "confidence": 0.79,
+        "bounding_box": "region_back_bottom",
+        "status": "needs_review",
+        "flag": "small_font"
+      },
+      "consumer_care": {
+        "value": "1800-123-4567 / care@xyz.com",
+        "confidence": 0.82,
+        "bounding_box": "region_back_lower",
+        "status": "extracted"
+      },
+      "country_of_origin": {
+        "value": "India",
+        "confidence": 0.95,
+        "bounding_box": "region_side_right",
+        "status": "extracted"
+      }
+    }
+  },
+  "OIL-001": {
+    "product_id": "OIL-001",
+    "product_name": "Sunflower Oil Premium",
+    "category": "FMCG - Cooking Oil",
+    "extractions": {
+      "product_name": {
+        "value": "Sunflower Oil Premium",
+        "confidence": 0.98,
+        "bounding_box": "region_center",
+        "status": "extracted"
+      },
+      "net_quantity": {
+        "value": "1 L",
+        "confidence": 0.95,
+        "bounding_box": "region_right",
+        "status": "extracted"
+      },
+      "mrp": {
+        "value": "Rs. 299 (inclusive of all taxes)",
+        "confidence": 0.93,
+        "bounding_box": "region_bottom",
+        "status": "extracted"
+      },
+      "manufacturer_name": {
+        "value": "Oil Refineries Ltd",
+        "confidence": 0.91,
+        "bounding_box": "region_back_top",
+        "status": "extracted"
+      },
+      "manufacturer_address": {
+        "value": "Bangalore, India",
+        "confidence": 0.89,
+        "bounding_box": "region_back_center",
+        "status": "extracted"
+      },
+      "date_of_manufacture": {
+        "value": "March 2024",
+        "confidence": 0.87,
+        "bounding_box": "region_back_bottom",
+        "status": "extracted"
+      },
+      "consumer_care": {
+        "value": "1800-987-6543",
+        "confidence": 0.85,
+        "bounding_box": "region_back_lower",
+        "status": "extracted"
+      },
+      "country_of_origin": {
+        "value": "India",
+        "confidence": 0.96,
+        "bounding_box": "region_side",
+        "status": "extracted"
+      }
+    }
+  },
+  "BISCUIT-001": {
+    "product_id": "BISCUIT-001",
+    "product_name": "Butter Crunch Biscuits",
+    "category": "Food - Biscuits",
+    "extractions": {
+      "product_name": {
+        "value": "Butter Crunch Biscuits",
+        "confidence": 0.96,
+        "bounding_box": "region_top",
+        "status": "extracted"
+      },
+      "net_quantity": {
+        "value": "200 g",
+        "confidence": 0.94,
+        "bounding_box": "region_right",
+        "status": "extracted"
+      },
+      "mrp": {
+        "value": "Rs. 20 (inclusive of all taxes)",
+        "confidence": 0.88,
+        "bounding_box": "region_bottom",
+        "status": "extracted"
+      },
+      "manufacturer_name": {
+        "value": "Biscuit Factory Ltd",
+        "confidence": 0.92,
+        "bounding_box": "region_back_top",
+        "status": "extracted"
+      },
+      "manufacturer_address": {
+        "value": "Delhi, India",
+        "confidence": 0.87,
+        "bounding_box": "region_back_center",
+        "status": "extracted"
+      },
+      "date_of_manufacture": {
+        "value": "January 2024",
+        "confidence": 0.9,
+        "bounding_box": "region_back_bottom",
+        "status": "extracted"
+      },
+      "consumer_care": {
+        "value": "1800-555-6666",
+        "confidence": 0.44,
+        "bounding_box": "region_back_lower",
+        "status": "needs_review",
+        "flag": "very_small_text"
+      },
+      "country_of_origin": {
+        "value": "India",
+        "confidence": 0.97,
+        "bounding_box": "region_side",
+        "status": "extracted"
+      }
+    }
+  }
+}
