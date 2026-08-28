@@ -13,20 +13,37 @@ type Annotation = { description?: string; boundingPoly?: { vertices?: Vertex[] }
 
 const FIELD_ORDER = ['net_quantity', 'mrp', 'manufacturer', 'date_of_manufacture', 'batch_number', 'country_of_origin', 'consumer_care'] as const;
 
+/**
+ * FIELD_PATTERNS: Strict label/value regexes where possible. Each pattern tries
+ * to capture the meaningful value in a group so post-processing can normalize it.
+ */
 const FIELD_PATTERNS: Record<string, RegExp> = {
-  mrp: /(mrp|m\.r\.p\.?|maximum retail price)[:\s]*(rs\.?|₹|inr)?\s?\d+(?:[.,]\d+)?/i,
-  net_quantity: /\b(net\s*(qty|quantity|wt|weight)[:\s]*)?\d+(?:[.,]\d+)?\s*(g|gm|gms|kg|ml|l|ltr|litre)\b/i,
-  date_of_manufacture: /(mfg|manufactur(ed|ing)|pack(ed|ing))?\s*date[:\s]*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\b\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b/i,
-  batch_number: /(batch|lot)\s*(no\.?|number)?[:\s]*[\w-]+/i,
-  country_of_origin: /country\s*of\s*origin[:\s]*.+/i,
-  consumer_care: /(consumer|customer)\s*care[:\s]*.+/i,
-  manufacturer: /(manufactur(er|ed|ing)?|mfr\.?)\s*(by|name)?[:\s]+.+/i,
+  // Capture currency symbol+value (handles ₹, Rs, INR, Rs., M.R.P etc). Capture numeric portion.
+  mrp: /(?:^|\b)(?:mrp|m\.r\.p\.?|maximum\s+retail\s+price|price)[:\s\-]*((?:rs\.?|inr|\₹)?\s*[\d{1,3}(?:,|\.)?\d{0,3}]+(?:[.,]\d+)?(?:\s*per)?)/i,
+
+  // Net quantity: capture forms like "Net Wt. 200 g", "Net Qty: 2 x 200 ml", "500 ml"
+  net_quantity: /(?:\bnet\b[:\s\-]*)?(?:wt|qty|quantity|net\s*wt|net\s*quantity|weight|vol|volume)?[:\s\-]*((?:\d+(?:[.,]\d+)?(?:\s*[xX]\s*\d+)?)(?:\s*(?:g|gm|gms|kg|mg|ml|l|ltr|litre|mls|oz|ozs))\b)/i,
+
+  // Dates: support dd/mm/yyyy, dd-mm-yy, dd Mmm yyyy, Mmm dd, yyyy, "Mfg Date: 12 Apr 2023"
+  date_of_manufacture: /(?:\b(?:mfg|mfg\.|manufactur(?:ed|ing)|mfg(?:\s*date)?|mfgdate|mfg\:|pack(?:ed|ing)?)\b[:\s\-]*)?((?:\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})|(?:\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[.,]?\s*\d{2,4})|(?:[a-z]{3,9}\s+\d{1,2},?\s*\d{2,4}))/i,
+
+  // Batch numbers often alphanumeric, may contain slashes, dashes, dots
+  batch_number: /(?:\b(batch|lot)\b[:\s\-]*)?([A-Z0-9\-\/_.]{3,30})/i,
+
+  // Country of origin: label followed by country name(s)
+  country_of_origin: /(?:\b(country\s+of\s+origin|origin|made\s+in)\b[:\s\-]*)?([A-Za-z \-]{2,40})/i,
+
+  // Consumer care: phone, email, or "consumer care: <text>"
+  consumer_care: /(?:\b(consumer|customer)\s*care\b[:\s\-]*)?(:?\+?\d{3,4}[-\s]?\d{3,4}[-\s]?\d{3,4}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|https?:\/\/[^\s,;]+)/i,
+
+  // Manufacturer: label + remainder; capture remainder and split heuristically later
+  manufacturer: /(?:\b(manufactur(?:er|ed|ing)|mfr\.?)\b[:\s\-]*)?(.*\S.*)/i,
 };
 
 const LABEL_ONLY_PATTERNS: RegExp[] = [
-  /^(mrp|m\.r\.p\.?|maximum retail price)\s*[:\-]?\s*$/i,
+  /^(mrp|m\.r\.p\.?|maximum retail price|price)\s*[:\-]?\s*$/i,
   /^net\s*(qty|quantity|wt|weight)\s*[:\-]?\s*$/i,
-  /^(mfg|manufactur(ed|ing)|pack(ed|ing))?\s*date\s*[:\-]?\s*$/i,
+  /^(mfg|manufactur(ed|ing)|pack(ed|ing)?)\s*date\s*[:\-]?\s*$/i,
   /^(batch|lot)\s*(no\.?|number)?\s*[:\-]?\s*$/i,
   /^country\s*of\s*origin\s*[:\-]?\s*$/i,
   /^(consumer|customer)\s*care\s*[:\-]?\s*$/i,
@@ -36,8 +53,33 @@ const isLabelOnly = (line: string) => LABEL_ONLY_PATTERNS.some((p) => p.test(lin
 const matchesAnyField = (line: string) => Object.values(FIELD_PATTERNS).some((p) => p.test(line));
 const NON_TITLE_WORDS = /\b(image|photo|logo|placeholder|insert|barcode|sample photo|click here)\b/i;
 
+/** Clean and normalise OCR text for more reliable matching */
 function cleanText(s: string): string {
-  return (s || '').replace(/\s+/g, ' ').trim();
+  return (s || '')
+    .replace(/\u00A0/g, ' ') // non-breaking space
+    .replace(/[\u2018\u2019\u201C\u201D]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Attempt to fix common OCR confusions (O vs 0, l vs 1, I vs 1), and normalise punctuation */
+function normalizeOcrLine(s: string): string {
+  let out = s;
+  // Some safe replacements: when adjacent to digits, O -> 0, I/l -> 1
+  out = out.replace(/(?<=\d)[Oo](?=\d)/g, '0');
+  out = out.replace(/\bO(?=\d)/g, '0');
+  out = out.replace(/\bO\b/g, '0');
+  out = out.replace(/\bI\b/g, '1');
+  // Replace common diacritics / OCR broken currency tokens
+  out = out.replace(/Rs\.?/ig, 'Rs');
+  out = out.replace(/INR/ig, 'Rs');
+  out = out.replace(/₹/g, 'Rs');
+  // Fix common delimiters
+  out = out.replace(/[•··]/g, '.').replace(/[\u2013\u2014‑]/g, '-');
+  // Remove isolated invalid characters
+  out = out.replace(/[^\S\r\n]+/g, ' ');
+  return cleanText(out);
 }
 
 function unionBbox(a?: Annotation['boundingPoly'], b?: Annotation['boundingPoly']): Annotation['boundingPoly'] | undefined {
@@ -45,13 +87,17 @@ function unionBbox(a?: Annotation['boundingPoly'], b?: Annotation['boundingPoly'
   if (!verts.length) return undefined;
   const xs = verts.map((v) => v.x ?? 0);
   const ys = verts.map((v) => v.y ?? 0);
-  return { vertices: [{ x: Math.min(...xs), y: Math.min(...ys) }, { x: Math.max(...xs), y: Math.min(...ys) }, { x: Math.max(...xs), y: Math.max(...ys) }, { x: Math.min(...xs), y: Math.max(...ys) }] };
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  return { vertices: [{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }] };
 }
 
-/** Merges a label-only line ("Manufacturer:") with the line immediately
- *  after it. Safe now that ImageUploader delivers lines in real top-to-
- *  bottom, left-to-right order — "immediately after" now genuinely means
- *  spatially next, not just next in an arbitrary OCR-internal array. */
+/** Merges a label-only line ("Manufacturer:") with the line(s) immediately
+ *  after it. Also supports label on one line and value on following line(s)
+ *  that look like an address (multiple tokens, commas, company suffixes).
+ */
 function mergeBrokenLabelLines(lines: string[], lineAnnotations: Annotation[]) {
   const mergedLines: string[] = [];
   const annotationMap = new Map<string, Annotation>();
@@ -59,13 +105,26 @@ function mergeBrokenLabelLines(lines: string[], lineAnnotations: Annotation[]) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    // If label-only and next line is not a label, merge them. Also allow multi-line address merging if next few lines look like address.
     if (isLabelOnly(line) && i + 1 < lines.length && !isLabelOnly(lines[i + 1])) {
-      const next = lines[i + 1];
-      const combined = cleanText(`${line} ${next}`);
+      let combined = cleanText(`${line} ${lines[i + 1]}`);
+      let bbox = unionBbox(findAnno(line)?.boundingPoly, findAnno(lines[i + 1])?.boundingPoly);
+      // If the next line looks like part of an address (comma, city names, 'Pvt', 'Ltd', digits), include a third line as well.
+      if (i + 2 < lines.length && /,|\b(pvt|ltd|limited|road|street|nagar|city|india|pvt\.? ltd)/i.test(lines[i + 2])) {
+        combined = cleanText(`${combined} ${lines[i + 2]}`);
+        bbox = unionBbox(bbox, findAnno(lines[i + 2])?.boundingPoly);
+        i += 1; // will be incremented below too
+      }
       mergedLines.push(combined);
-      const bbox = unionBbox(findAnno(line)?.boundingPoly, findAnno(next)?.boundingPoly);
       if (bbox) annotationMap.set(combined, { description: combined, boundingPoly: bbox, level: 'line' });
       i++;
+      continue;
+    }
+    // If this line + next line together form label:value where label is separated by newline, merge them (e.g., "MRP" then "Rs 50")
+    if (!isLabelOnly(line) && i + 1 < lines.length && isLabelOnly(lines[i + 1]) && !isLabelOnly(line)) {
+      mergedLines.push(line);
+      const a = findAnno(line);
+      if (a) annotationMap.set(line, a);
       continue;
     }
     mergedLines.push(line);
@@ -76,9 +135,8 @@ function mergeBrokenLabelLines(lines: string[], lineAnnotations: Annotation[]) {
 }
 
 /** Single best title candidate: largest text, near the top, that isn't a
- *  label/value line and isn't UI chrome. No clustering — clustering was
- *  what previously let the title balloon into neighboring subtitle/price
- *  text when line order wasn't reliably sequential. */
+ *  label/value line and isn't UI chrome.
+ */
 function detectProductName(lines: string[], lineAnnotations: Annotation[]): { text: string; bbox?: Annotation['boundingPoly'] } | null {
   const metrics = lines
     .map((line, idx) => {
@@ -90,7 +148,7 @@ function detectProductName(lines: string[], lineAnnotations: Annotation[]): { te
       const letterCount = (line.match(/[A-Za-z]/g) || []).length;
       return { line, idx, height, topY, letterCount, bbox: anno?.boundingPoly };
     })
-    .filter((m) => m.letterCount >= 2 && m.line.length <= 45 && !NON_TITLE_WORDS.test(m.line) && !isLabelOnly(m.line) && !matchesAnyField(m.line));
+    .filter((m) => m.letterCount >= 2 && m.line.length <= 60 && !NON_TITLE_WORDS.test(m.line) && !isLabelOnly(m.line) && !matchesAnyField(m.line));
 
   if (!metrics.length) return null;
 
@@ -137,7 +195,8 @@ export default function Scan() {
   }, [uploadedImageUrl, extractionResult, bumpOverlay]);
 
   function parseOcrIntoExtractionResult(ocrText: string, ocrAnnotations: Annotation[] = []): ExtractionResult {
-    const rawLines = ocrText.split(/\r?\n/).map((l) => cleanText(l)).filter(Boolean);
+    // Split to lines, normalize and remove empty
+    const rawLines = ocrText.split(/\r?\n/).map((l) => normalizeOcrLine(l)).map(cleanText).filter(Boolean);
     const lineAnnotations = ocrAnnotations.filter((a) => a.level !== 'word');
     const now = new Date().toISOString();
 
@@ -150,37 +209,168 @@ export default function Scan() {
     const assignedLineIdx = new Set<number>();
     const found: Record<string, { value: string; bbox?: Annotation['boundingPoly'] }> = {};
 
+    // Pass 1: Try to extract using strict patterns with capturing groups
     lines.forEach((line, idx) => {
       if (assignedLineIdx.has(idx)) return;
       if (nameResult && line === nameResult.text) return;
+
       for (const field of FIELD_ORDER) {
         if (found[field]) continue;
-        if (FIELD_PATTERNS[field].test(line)) {
-          found[field] = { value: cleanText(line), bbox: findBbox(line) };
+        const pat = FIELD_PATTERNS[field];
+        const m = pat.exec(line);
+        if (m) {
+          let val = '';
+          // Prefer captured group 1 when present
+          if (m[1]) val = cleanText(m[1]);
+          else val = cleanText(m[0]);
+
+          // Small field-specific normalizations
+          if (field === 'mrp') {
+            // Extract only the number with currency
+            const num = val.match(/(?:Rs\.?\s*)?([\d,]+(?:[.,]\d+)?)/i);
+            val = num ? `Rs ${num[1].replace(/,/g, '')}` : val;
+          } else if (field === 'date_of_manufacture') {
+            // Try to normalise separators
+            val = val.replace(/\s+/, ' ');
+            // no deep parsing here; keep as-found
+          } else if (field === 'net_quantity') {
+            val = val.replace(/\s+/g, ' ').replace(/\b(gm|gms)\b/i, 'g');
+          } else if (field === 'country_of_origin') {
+            // If it captured "Country of Origin: India" as whole; extract the tail
+            const parts = val.split(/[:\-]/);
+            if (parts.length > 1) val = cleanText(parts.slice(1).join(' '));
+          } else if (field === 'consumer_care') {
+            // if email/phone found, take it
+            const email = val.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+            const phone = val.match(/\+?\d[\d\s\-]{6,}\d/);
+            const url = val.match(/https?:\/\/[^\s,;]+/i);
+            val = email ? email[0] : (phone ? phone[0] : (url ? url[0] : val));
+          }
+
+          found[field] = { value: val, bbox: findBbox(line) };
           assignedLineIdx.add(idx);
           break;
         }
       }
     });
 
+    // Pass 2: Heuristics / neighboring lines for fields not captured in pass 1
+    const companySuffixPattern = /\b(pvt|pvt\.? ltd|ltd|limited|private limited|co\.?|co|inc|llp|l\.l\.p)\b/i;
+    for (let i = 0; i < lines.length; i++) {
+      if (assignedLineIdx.has(i)) continue;
+      const line = lines[i];
+
+      // Manufacturer heuristics: if line looks like a company (suffix) or starts with "Mfg:" etc
+      if (!found.manufacturer) {
+        if (companySuffixPattern.test(line) || /^(mfr|manufacturer|manufactured by|mfg|mfg by)\b/i.test(line)) {
+          // Combine this line with next 1-2 lines if they look like address
+          let combined = line;
+          let bbox = findBbox(line);
+          if (i + 1 < lines.length && /,|\d{3,6}|\b(street|road|nagar|city|pincode|pin)\b/i.test(lines[i + 1])) {
+            combined = `${combined} ${lines[i + 1]}`;
+            bbox = unionBbox(bbox, findBbox(lines[i + 1]));
+            assignedLineIdx.add(i + 1);
+          }
+          found.manufacturer = { value: cleanText(combined.replace(/^(manufactur(?:er|ed|ing)?|mfr\.?)[\:\-]?\s*/i, '')), bbox };
+          assignedLineIdx.add(i);
+          continue;
+        }
+      }
+
+      // Try to pick up MRP present as "$ 50" but label on previous line
+      if (!found.mrp && i > 0 && /^(mrp|m\.r\.p\.?|price)\b/i.test(lines[i - 1]) && /[\d₹RsINR]/.test(line)) {
+        const num = line.match(/(?:Rs\.?\s*)?([\d,]+(?:[.,]\d+)?)/i);
+        if (num) {
+          found.mrp = { value: `Rs ${num[1].replace(/,/g, '')}`, bbox: findBbox(line) };
+          assignedLineIdx.add(i);
+          assignedLineIdx.add(i - 1);
+          continue;
+        }
+      }
+
+      // Net quantity might be standalone like "200 ml"
+      if (!found.net_quantity) {
+        const m = line.match(/^\s*(\d+(?:[.,]\d+)?(?:\s*[xX]\s*\d+)?\s*(?:g|kg|ml|l|ltr|oz|mg))\b/i);
+        if (m) {
+          found.net_quantity = { value: cleanText(m[1]), bbox: findBbox(line) };
+          assignedLineIdx.add(i);
+          continue;
+        }
+      }
+
+      // Batch number fallback: look for standalone patterns like "Batch: AB12/34"
+      if (!found.batch_number) {
+        const m = line.match(/\b(batch|lot)\b[:\s\-]*([A-Z0-9\/\-_\.]{3,30})/i);
+        if (m) {
+          found.batch_number = { value: cleanText(m[2]), bbox: findBbox(line) };
+          assignedLineIdx.add(i);
+          continue;
+        }
+      }
+
+      // Consumer care: if line contains phone/email
+      if (!found.consumer_care) {
+        const email = line.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+        const phone = line.match(/\+?\d[\d\s\-]{6,}\d/);
+        const url = line.match(/https?:\/\/[^\s,;]+/i);
+        if (email || phone || url) {
+          found.consumer_care = { value: email?.[0] || phone?.[0] || url?.[0], bbox: findBbox(line) };
+          assignedLineIdx.add(i);
+          continue;
+        }
+      }
+
+      // Country fallback: "Made in India"
+      if (!found.country_of_origin) {
+        const m = line.match(/\b(made in|origin)\b[:\s\-]*([A-Za-z ]{2,40})/i);
+        if (m) {
+          found.country_of_origin = { value: cleanText(m[2]), bbox: findBbox(line) };
+          assignedLineIdx.add(i);
+          continue;
+        }
+      }
+
+      // Date fallback: any date-like pattern
+      if (!found.date_of_manufacture) {
+        const m = line.match(/(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*\d{2,4})/i);
+        if (m) {
+          found.date_of_manufacture = { value: cleanText(m[1]), bbox: findBbox(line) };
+          assignedLineIdx.add(i);
+          continue;
+        }
+      }
+    }
+
+    // Manufacturer name/address post-processing if manufacturer captured loosely
     let manufacturerName = '';
     let manufacturerAddress = '';
     let manufacturerBbox: Annotation['boundingPoly'] | undefined;
     if (found.manufacturer) {
       manufacturerBbox = found.manufacturer.bbox;
-      const raw = found.manufacturer.value.replace(/^(manufactur(er|ed|ing)?|mfr\.?)\s*(by|name)?[:\s]+/i, '');
+      const raw = found.manufacturer.value.replace(/^(manufactur(er|ed|ing)?|mfr\.?)\s*(by|name)?[:\s]+/i, '').trim();
+      // If comma present, split into name and address
       const commaIdx = raw.indexOf(',');
       if (commaIdx > -1) {
         manufacturerName = cleanText(raw.slice(0, commaIdx));
         manufacturerAddress = cleanText(raw.slice(commaIdx + 1));
       } else {
-        manufacturerName = cleanText(raw);
+        // If raw contains company suffix, treat whole raw as name and try to find subsequent address lines
+        if (companySuffixPattern.test(raw)) {
+          manufacturerName = cleanText(raw);
+        } else {
+          // If short name (<5 words) consider as name; otherwise treat as address
+          const words = raw.split(/\s+/);
+          if (words.length <= 5) manufacturerName = cleanText(raw);
+          else manufacturerAddress = cleanText(raw);
+        }
       }
     }
+
+    // If we still don't have manufacturer address, look for nearby address-like lines not assigned yet
     if (!manufacturerAddress) {
       const addressLineIdx = lines.findIndex(
         (line, idx) => !assignedLineIdx.has(idx) && (!nameResult || line !== nameResult.text) &&
-          /(\b\d{6}\b|road|street|nagar|city|india|pvt\.?\s*ltd)/i.test(line)
+          /(\b\d{5,6}\b|pincode|pin|road|street|nagar|city|india|pvt\.?\s*ltd|ltd|limited|factory|office)/i.test(line)
       );
       if (addressLineIdx > -1) {
         const line = lines[addressLineIdx];
@@ -368,7 +558,7 @@ export default function Scan() {
                       <div key={overlayTick} style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
                         {/* All scanned text — blue, informational only, click-through */}
                         {annotations.filter((a) => a.level !== 'word').map((a, i) => (
-                          <div key={`scan-${i}`} style={{ position: 'absolute', pointerEvents: 'none', border: '2px solid rgba(59,130,246,0.55)', background: 'rgba(59,130,246,0.08)', borderRadius: 3, ...computeBoxStyle(a.boundingPoly?.vertices) }} />
+                          <div key={`scan-${i}`} style={{ position: 'absolute', pointerEvents: 'none', border: '2px solid rgba(59,130,246,0.55)', background: 'rgba(59,130,246,0.08)', borderRadius: 4, ...computeBoxStyle(a.boundingPoly?.vertices) }} />
                         ))}
                         {/* Boxes actually used for a field — orange, clickable, turns green when active */}
                         {usedBoxes.map(({ field, vertices }, i) => {
@@ -439,8 +629,8 @@ export default function Scan() {
               </div>
 
               <div className="flex gap-4">
-                <button onClick={() => { setExtractionResult(null); setUploadedImageUrl(null); setAnnotations([]); }} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition-colors">← Back</button>
-                <button onClick={handleStartInspection} disabled={!extractionResult} className={`flex-1 font-bold py-2 px-4 rounded-lg transition-colors ${extractionResult ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 text-gray-600 cursor-not-allowed'}`}>
+                <button onClick={() => { setExtractionResult(null); setUploadedImageUrl(null); setAnnotations([]); }} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition-colors">Reset</button>
+                <button onClick={handleStartInspection} disabled={!extractionResult} className={`flex-1 font-bold py-2 px-4 rounded-lg transition-colors ${extractionResult ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 text-gray-600'}`}>
                   ✓ Continue to Verification
                 </button>
               </div>
