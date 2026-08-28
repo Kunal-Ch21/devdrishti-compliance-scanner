@@ -4,7 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useInspectionStore } from '@/store/inspectionStore';
- 
+
 export default function Dashboard() {
   const router = useRouter();
   const inspector = useAuthStore((state) => state.inspector);
