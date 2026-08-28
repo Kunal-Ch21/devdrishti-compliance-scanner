@@ -102,14 +102,26 @@ const ImageUploader = forwardRef<ImageUploaderHandle, Props>(({ onResult, autoUp
           if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
         },
       });
-      // Label photos have scattered, disconnected text blocks (title, price
-      // badge, footer print, barcode caption) rather than one paragraph —
-      // SPARSE_TEXT finds all of them instead of only the main block.
       await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
 
       const { data } = await worker.recognize(blob);
       await worker.terminate();
       worker = null;
+
+      // CRITICAL FIX: SPARSE_TEXT returns blocks in Tesseract's internal
+      // scan order, NOT top-to-bottom reading order. Any logic downstream
+      // that assumes "the next line in the array is the next line on the
+      // label" (label/value merging, title detection) silently breaks
+      // without this sort — it was the real cause of MRP/name mix-ups.
+      const rowThreshold = Math.max(8, height * 0.01);
+      const byPosition = (a: any, b: any) => {
+        const dy = a.bbox.y0 - b.bbox.y0;
+        if (Math.abs(dy) > rowThreshold) return dy; // different rows → top first
+        return a.bbox.x0 - b.bbox.x0; // same row → left first
+      };
+
+      const sortedLines = [...(data.lines || [])].sort(byPosition);
+      const sortedWords = [...((data as any).words || [])].sort(byPosition);
 
       const toVertices = (x0: number, y0: number, x1: number, y1: number): AnnotationVertex[] => [
         { x: x0 / width, y: y0 / height },
@@ -119,20 +131,22 @@ const ImageUploader = forwardRef<ImageUploaderHandle, Props>(({ onResult, autoUp
       ];
       const cleanStr = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-      const lineAnnotations: Annotation[] = (data.lines || [])
+      const lineAnnotations: Annotation[] = sortedLines
         .filter((line) => line.text && cleanStr(line.text).length > 0)
         .map((line) => {
           const { x0, y0, x1, y1 } = line.bbox;
           return { description: cleanStr(line.text), boundingPoly: { vertices: toVertices(x0, y0, x1, y1) }, level: 'line' as const };
         });
 
-      const wordAnnotations: Annotation[] = ((data as any).words || [])
+      const wordAnnotations: Annotation[] = sortedWords
         .filter((w: any) => w.text && cleanStr(w.text).length > 0)
         .map((w: any) => {
           const { x0, y0, x1, y1 } = w.bbox;
           return { description: cleanStr(w.text), boundingPoly: { vertices: toVertices(x0, y0, x1, y1) }, level: 'word' as const };
         });
 
+      // Text now reflects spatial (top-to-bottom) order too, since it's
+      // built from the same sorted lines.
       const textFromLines = lineAnnotations.map((a) => a.description).join('\n');
 
       onResult(file, { text: textFromLines || cleanStr(data.text || ''), annotations: [...lineAnnotations, ...wordAnnotations] });
