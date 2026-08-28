@@ -19,8 +19,7 @@ const FIELD_ORDER = ['net_quantity', 'mrp', 'manufacturer', 'date_of_manufacture
  */
 const FIELD_PATTERNS: Record<string, RegExp> = {
   // Capture currency symbol+value (handles ₹, Rs, INR, Rs., M.R.P etc). Capture numeric portion.
-  mrp: /(?:^|\b)(?:mrp|m\.r\.p\.?|maximum\s+retail\s+price|price)[:\s\-]*((?:rs\.?|inr|\₹)?\s*[\d{1,3}(?:,|\.)?\d{0,3}]+(?:[.,]\d+)?(?:\s*per)?)/i,
-
+  mrp: /(?:^|\b)(?:mrp|m\.r\.p\.?|maximum\s+retail\s+price|price)[:\s-]*((?:rs\.?|inr|₹)?\s*\d+(?:,\d{3})*(?:\.\d+)?)/i,
   // Net quantity: capture forms like "Net Wt. 200 g", "Net Qty: 2 x 200 ml", "500 ml"
   net_quantity: /(?:\bnet\b[:\s\-]*)?(?:wt|qty|quantity|net\s*wt|net\s*quantity|weight|vol|volume)?[:\s\-]*((?:\d+(?:[.,]\d+)?(?:\s*[xX]\s*\d+)?)(?:\s*(?:g|gm|gms|kg|mg|ml|l|ltr|litre|mls|oz|ozs))\b)/i,
 
