@@ -314,9 +314,16 @@ export default function Scan() {
         const phone = line.match(/\+?\d[\d\s\-]{6,}\d/);
         const url = line.match(/https?:\/\/[^\s,;]+/i);
         if (email || phone || url) {
-          found.consumer_care = { value: email?.[0] || phone?.[0] || url?.[0], bbox: findBbox(line) };
-          assignedLineIdx.add(i);
-          continue;
+          const value = email?.[0] ?? phone?.[0] ?? url?.[0];
+        
+          if (value) {
+            found.consumer_care = {
+              value,
+              bbox: findBbox(line),
+            };
+            assignedLineIdx.add(i);
+            continue;
+          }
         }
       }
 
