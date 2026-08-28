@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Inspector } from '@/types';
-import inspectors from '@/data/inspectorProfiles.json';
+import { inspectors } from '@/data/inspectorProfiles';
 
 interface AuthState {
   inspector: Inspector | null;
@@ -15,7 +15,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoggedIn: false,
 
   login: (inspectorId: string, password: string) => {
-    const inspector = inspectors.inspectors.find(
+    const inspector = inspectors.find(
       (insp) => insp.id === inspectorId && insp.password === password
     );
 

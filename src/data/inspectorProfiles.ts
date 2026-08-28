@@ -1,0 +1,61 @@
+import { Inspector } from '@/types';
+
+// Export a typed inspectors array.
+// Also provide a default object with an `inspectors` property for compatibility if some modules expect that shape.
+export const inspectors: Inspector[] = [
+  {
+    id: 'INS-001',
+    name: 'Shri Raj Kumar',
+    email: 'raj.kumar@legametrology.gov.in',
+    password: 'demo123',
+    department: 'Maharashtra',
+    region: 'Mumbai',
+    role: 'Senior Inspector',
+    permissions: [
+      'scan',
+      'extract',
+      'verify',
+      'report',
+      'view_history',
+      'export_pdf',
+      'view_all_inspections',
+      'approve_reports',
+    ],
+    badge_number: 'MH-2847',
+  },
+  {
+    id: 'INS-002',
+    name: 'Smt. Priya Sharma',
+    email: 'priya.sharma@legametrology.gov.in',
+    password: 'demo456',
+    department: 'Karnataka',
+    region: 'Bangalore',
+    role: 'Inspector',
+    permissions: ['scan', 'extract', 'verify', 'report', 'view_history', 'export_pdf'],
+    badge_number: 'KA-1923',
+  },
+  {
+    id: 'INS-003',
+    name: 'Shri Amit Patel',
+    email: 'amit.patel@legametrology.gov.in',
+    password: 'demo789',
+    department: 'Gujarat',
+    region: 'Ahmedabad',
+    role: 'Junior Inspector',
+    permissions: ['scan', 'extract', 'verify', 'report'],
+    badge_number: 'GJ-5012',
+  },
+  {
+    id: 'INS-004',
+    name: 'Smt. Anjali Desai',
+    email: 'anjali.desai@legametrology.gov.in',
+    password: 'demo321',
+    department: 'Maharashtra',
+    region: 'Pune',
+    role: 'Inspector',
+    permissions: ['scan', 'extract', 'verify', 'report', 'view_history', 'export_pdf'],
+    badge_number: 'MH-3456',
+  },
+];
+
+export default { inspectors };

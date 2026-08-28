@@ -94,19 +94,7 @@ body {
   @apply bg-red-100 text-red-800;
 }
 
-/* Utility classes */
+/* Custom utility */
 .flex-center {
   @apply flex items-center justify-center;
-}
-
-.gap-4 {
-  @apply gap-4;
-}
-
-.mt-4 {
-  @apply mt-4;
-}
-
-.mb-4 {
-  @apply mb-4;
 }

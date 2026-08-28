@@ -35,7 +35,7 @@ export interface ExtractionResult {
     date_of_manufacture: ExtractedField;
     consumer_care: ExtractedField;
     country_of_origin: ExtractedField;
-    batch_number?: ExtractedField;
+    batch_number: ExtractedField;
   };
 }
 
@@ -63,6 +63,7 @@ export interface Finding {
   decision_timestamp?: string;
   evidence_link: string;
   reason: string;
+  bounding_box?: string;
 }
 
 // Inspection Report
@@ -85,6 +86,7 @@ export interface InspectionReport {
   violations_count: number;
   store_location?: string;
   product_images: string[];
+  ocr_annotations?: any[];
   audit_log: AuditLogEntry[];
 }
 
