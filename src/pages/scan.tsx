@@ -14,23 +14,23 @@ type Annotation = { description?: string; boundingPoly?: { vertices?: Vertex[] }
 const FIELD_ORDER = ['net_quantity', 'mrp', 'manufacturer', 'date_of_manufacture', 'batch_number', 'country_of_origin', 'consumer_care'] as const;
 
 const FIELD_PATTERNS: Record<string, RegExp> = {
-  mrp: /(mrp|m\.r\.p\.?|maximum retail price)[:\s]*(rs\.?|₹|inr)?\s?\d+(?:[.,]\d+)?/i,
-  net_quantity: /\b(net\s*(qty|quantity|wt|weight)[:\s]*)?\d+(?:[.,]\d+)?\s*(g|gm|gms|kg|ml|l|ltr|litre)\b/i,
-  date_of_manufacture: /(mfg|manufactur(ed|ing)|pack(ed|ing))?\s*date[:\s]*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\b\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b/i,
-  batch_number: /(batch|lot)\s*(no\.?|number)?[:\s]*[\w-]+/i,
-  country_of_origin: /country\s*of\s*origin[:\s]*.+/i,
-  consumer_care: /(consumer|customer)\s*care[:\s]*.+/i,
-  manufacturer: /(manufactur(er|ed|ing)?|mfr\.?)\s*(by|name)?[:\s]+.+/i,
+  mrp: /(?:m\s*\.?\s*r\s*\.?\s*p\.?|maximum\s*retail\s*price)\b[:\s.\-]*(?:\(?\s*(?:rs\.?|inr|re\.?|₹)\s*\)?)?\s*[\d,]+(?:[.,]\d{1,2})?(?:\s*\/\-)?/i,
+  net_quantity: /(?!(?:.*\b(?:serving|calories|nutrition|daily\s*value|amount\s*per|total\s*fat|saturated|protein|sodium|cholesterol|sugar|fiber|vitamin)\b))(?:\bnet\s*(?:wt\.?|weight|qty\.?|quantity|content)|\b(?:wt|weight|qty|quantity)\s*(?:net)?)[:\s]*[1-9]\d*(?:[.,]\d+)?\s*(?:g|gm?s?|grams?|kg|kgs?|mg|ml|l|ltr|litres?)\b|\b[1-9]\d*(?:[.,]\d+)?\s*(?:g|gm?s?|grams?|kg|mg|ml|l|ltr|litres?)\s*(?:net|nett)\b/i,
+  date_of_manufacture: /\b(?:mfg|mfd|manufactur(?:ed|ing)|pack(?:ed|ing)|pkd|dom|date\s*of\s*(?:mfg|manufacture))\b\s*(?:date|dt\.?)?[:\s]*\d{1,2}[\s\/\-\.](?:\d{1,2}|[A-Za-z]{3,9})[\s\/\-\.]\d{2,4}|\b\d{1,2}[\s\/\-\.]\d{1,2}[\s\/\-\.]\d{2,4}\b(?!\s*(?:g|gm|kg|ml|%))/i,
+  batch_number: /(?:\b(?:batch|lot)\b|b\.?\s*no\.?)\s*(?:no\.?|number|#|code|id)?[:\s]*[A-Za-z0-9][\w\-\/]{1,}/i,
+  country_of_origin: /(?:country\s*of\s*origin|(?:made|product)\s*(?:in|of)|origin\s*country)[:\s]*[A-Za-z].+/i,
+  consumer_care: /(?:consumer|customer)\s*(?:care|complaints?|service|queries)|(?:toll[\s-]*free|helpline|(?:contact|complaint)s?)[:\s]*(?:\+?\d[\d\s\-().]{6,}|[\w.+-]+@[\w.-]+).+|(?:for\s*(?:queries|complaints|feedback))[:\s]*.+/i,
+  manufacturer: /(?:\bmanufactur(?:er|ed)\b|\bmfr\.?\b|\bpacked\s*by\b|\bmarketed\s*by\b|\bproduced\s*by\b)(?:\s*(?:by|name))?[:\s]+(?!date\b).{2,}/i,
 };
 
 const LABEL_ONLY_PATTERNS: RegExp[] = [
-  /^(mrp|m\.r\.p\.?|maximum retail price)\s*[:\-]?\s*$/i,
-  /^net\s*(qty|quantity|wt|weight)\s*[:\-]?\s*$/i,
-  /^(mfg|manufactur(ed|ing)|pack(ed|ing))?\s*date\s*[:\-]?\s*$/i,
-  /^(batch|lot)\s*(no\.?|number)?\s*[:\-]?\s*$/i,
-  /^country\s*of\s*origin\s*[:\-]?\s*$/i,
-  /^(consumer|customer)\s*care\s*[:\-]?\s*$/i,
-  /^(manufactur(er|ed|ing)?|mfr\.?)\s*(by|name)?\s*[:\-]?\s*$/i,
+  /^(?:m\s*\.?\s*r\s*\.?\s*p\.?|maximum\s*retail\s*price)\s*[:.\-]?\s*$/i,
+  /^(?:net\s*(?:wt\.?|weight|qty\.?|quantity)|(?:wt|weight|qty|quantity)\s*(?:net)?)\s*[:.\-]?\s*$/i,
+  /^(?:\b(?:mfg|mfd|manufactur(?:ed|ing)|pack(?:ed|ing)|pkd|dom)\b)\s*(?:date|dt\.?)?\s*[:.\-]?\s*$/i,
+  /^(?:\b(?:batch|lot)\b|b\.?\s*no\.?)\s*(?:no\.?|number|#|code)?\s*[:.\-]?\s*$/i,
+  /^(?:country\s*of\s*origin|(?:made|product)\s*(?:in|of))\s*[:.\-]?\s*$/i,
+  /^(?:consumer|customer)\s*(?:care|complaints?|service|queries)\s*[:.\-]?\s*$/i,
+  /^(?:\bmanufactur(?:er|ed)\b|\bmfr\.?\b|\bpacked\s*by\b|\bmarketed\s*by\b|\bproduced\s*by\b)(?:\s*(?:by|name))?\s*[:.\-]?\s*$/i,
 ];
 const isLabelOnly = (line: string) => LABEL_ONLY_PATTERNS.some((p) => p.test(line.trim()));
 const matchesAnyField = (line: string) => Object.values(FIELD_PATTERNS).some((p) => p.test(line));
